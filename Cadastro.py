@@ -1,50 +1,107 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
+from tkinter import ttk, messagebox, filedialog
 
-# Lista para armazenar os cadastros
 cadastros = []
+indice_edicao = None
 
 def cadastrar():
-    nome = entry_nome.get()
-    email = entry_email.get()
-    estado = entry_estado.get()
-    cidade = entry_cidade.get()
-    pais = entry_pais.get()
+    global indice_edicao
 
-    if not nome or not email:
+    dados = {
+        "Nome": entry_nome.get(),
+        "Email": entry_email.get(),
+        "Estado": entry_estado.get(),
+        "Cidade": entry_cidade.get(),
+        "País": entry_pais.get(),
+        "Telefone": entry_telefone.get(),
+        "Documento": entry_documento.get(),
+        "Nascimento": entry_nascimento.get(),
+        "Pai": entry_pai.get(),
+        "Mãe": entry_mae.get(),
+        "Endereço": entry_endereco.get(),
+        "Bairro": entry_bairro.get(),
+        "Anexo": anexo_path.get()
+    }
+
+    if not dados["Nome"] or not dados["Email"]:
         messagebox.showwarning("Campos obrigatórios", "Nome e E-mail são obrigatórios.")
         return
 
-    dados = {
-        "Nome": nome,
-        "Email": email,
-        "Estado": estado,
-        "Cidade": cidade,
-        "País": pais
-    }
-    cadastros.append(dados)
-    messagebox.showinfo("Sucesso", "Cadastro realizado com sucesso!")
+    if indice_edicao is None:
+        cadastros.append(dados)
+        messagebox.showinfo("Sucesso", "Cadastro realizado com sucesso!")
+    else:
+        cadastros[indice_edicao] = dados
+        indice_edicao = None
+        btn_cadastrar.config(text="Cadastrar")
+        messagebox.showinfo("Sucesso", "Cadastro editado com sucesso!")
+
     atualizar_visualizacao()
     limpar_campos()
 
 def limpar_campos():
-    entry_nome.delete(0, tk.END)
-    entry_email.delete(0, tk.END)
-    entry_estado.delete(0, tk.END)
-    entry_cidade.delete(0, tk.END)
-    entry_pais.delete(0, tk.END)
+    global indice_edicao
+    for campo in entradas:
+        campo.delete(0, tk.END)
+    anexo_path.set("")
+    indice_edicao = None
+    btn_cadastrar.config(text="Cadastrar")
 
 def atualizar_visualizacao():
-    for item in tree.get_children():
-        tree.delete(item)
+    tree.delete(*tree.get_children())
     for i, cadastro in enumerate(cadastros):
-        tree.insert("", "end", values=(cadastro["Nome"], cadastro["Email"], cadastro["Estado"], cadastro["Cidade"], cadastro["País"]))
+        tree.insert("", "end", iid=str(i), values=(
+            cadastro["Nome"], cadastro["Email"], cadastro["Telefone"], cadastro["Nascimento"]
+        ))
+
+def excluir_cadastro():
+    selected_item = tree.selection()
+    if not selected_item:
+        messagebox.showwarning("Seleção necessária", "Selecione um cadastro para excluir.")
+        return
+    confirm = messagebox.askyesno("Confirmar exclusão", "Tem certeza que deseja excluir este cadastro?")
+    if confirm:
+        index = int(selected_item[0])
+        del cadastros[index]
+        atualizar_visualizacao()
+        messagebox.showinfo("Excluído", "Cadastro excluído com sucesso!")
+
+def editar_cadastro():
+    global indice_edicao
+    selected_item = tree.selection()
+    if not selected_item:
+        messagebox.showwarning("Seleção necessária", "Selecione um cadastro para editar.")
+        return
+
+    index = int(selected_item[0])
+    cadastro = cadastros[index]
+    indice_edicao = index
+
+    campos = [
+        "Nome", "Email", "Estado", "Cidade", "País",
+        "Telefone", "Documento", "Nascimento", "Pai", "Mãe",
+        "Endereço", "Bairro", "Anexo"
+    ]
+
+    for campo, entry in zip(campos, entradas + [anexo_path]):
+        if isinstance(entry, tk.Entry):
+            entry.delete(0, tk.END)
+            entry.insert(0, cadastro[campo])
+        else:
+            entry.set(cadastro[campo])
+
+    btn_cadastrar.config(text="Salvar Edição")
+    notebook.select(aba_cadastro)
+
+def selecionar_anexo():
+    caminho = filedialog.askopenfilename(title="Selecionar Documento")
+    if caminho:
+        anexo_path.set(caminho)
 
 # Janela principal
 janela = tk.Tk()
 janela.title("Sistema de Cadastro com Abas")
 
-# Notebook (abas)
 notebook = ttk.Notebook(janela)
 notebook.pack(padx=10, pady=10, fill='both', expand=True)
 
@@ -52,43 +109,52 @@ notebook.pack(padx=10, pady=10, fill='both', expand=True)
 aba_cadastro = ttk.Frame(notebook)
 notebook.add(aba_cadastro, text='Cadastro')
 
-# Campos de cadastro
-tk.Label(aba_cadastro, text="Nome:").grid(row=0, column=0, sticky="e")
-entry_nome = tk.Entry(aba_cadastro)
-entry_nome.grid(row=0, column=1)
+# Labels e Entradas
+labels = [
+    "Nome", "E-mail", "Estado", "Cidade", "País",
+    "Telefone", "Documento", "Data de Nascimento",
+    "Nome do Pai", "Nome da Mãe", "Endereço", "Bairro"
+]
 
-tk.Label(aba_cadastro, text="E-mail:").grid(row=1, column=0, sticky="e")
-entry_email = tk.Entry(aba_cadastro)
-entry_email.grid(row=1, column=1)
+entradas = []
+for i, texto in enumerate(labels):
+    tk.Label(aba_cadastro, text=f"{texto}:").grid(row=i, column=0, sticky="e")
+    entry = tk.Entry(aba_cadastro, width=40)
+    entry.grid(row=i, column=1, padx=5, pady=2)
+    entradas.append(entry)
 
-tk.Label(aba_cadastro, text="Estado:").grid(row=2, column=0, sticky="e")
-entry_estado = tk.Entry(aba_cadastro)
-entry_estado.grid(row=2, column=1)
+# Anexo
+anexo_path = tk.StringVar()
+tk.Label(aba_cadastro, text="Anexar Documento:").grid(row=len(labels), column=0, sticky="e")
+tk.Entry(aba_cadastro, textvariable=anexo_path, state="readonly", width=30).grid(row=len(labels), column=1, sticky="w")
+tk.Button(aba_cadastro, text="Selecionar Arquivo", command=selecionar_anexo).grid(row=len(labels), column=2, padx=5)
 
-tk.Label(aba_cadastro, text="Cidade:").grid(row=3, column=0, sticky="e")
-entry_cidade = tk.Entry(aba_cadastro)
-entry_cidade.grid(row=3, column=1)
-
-tk.Label(aba_cadastro, text="País:").grid(row=4, column=0, sticky="e")
-entry_pais = tk.Entry(aba_cadastro)
-entry_pais.grid(row=4, column=1)
-
-# Botão cadastrar
+# Botão cadastrar/editar
 btn_cadastrar = tk.Button(aba_cadastro, text="Cadastrar", command=cadastrar)
-btn_cadastrar.grid(row=5, column=0, columnspan=2, pady=10)
+btn_cadastrar.grid(row=len(labels)+1, column=0, columnspan=3, pady=10)
 
 # Aba de Visualização
 aba_visualizar = ttk.Frame(notebook)
 notebook.add(aba_visualizar, text='Visualizar Cadastros')
 
 # Tabela de visualização
-colunas = ("Nome", "Email", "Estado", "Cidade", "País")
+colunas = ("Nome", "Email", "Telefone", "Nascimento")
 tree = ttk.Treeview(aba_visualizar, columns=colunas, show="headings")
 
 for col in colunas:
     tree.heading(col, text=col)
-    tree.column(col, width=120)
+    tree.column(col, width=150)
 
 tree.pack(fill="both", expand=True)
+
+# Botões de ação
+frame_botoes = tk.Frame(aba_visualizar)
+frame_botoes.pack(pady=10)
+
+btn_editar = tk.Button(frame_botoes, text="Editar Selecionado", command=editar_cadastro)
+btn_editar.pack(side="left", padx=10)
+
+btn_excluir = tk.Button(frame_botoes, text="Excluir Selecionado", command=excluir_cadastro)
+btn_excluir.pack(side="left", padx=10)
 
 janela.mainloop()
